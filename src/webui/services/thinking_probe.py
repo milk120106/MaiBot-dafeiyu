@@ -1,6 +1,7 @@
 """通过开关对照请求识别兼容端点的思考参数，不把参数被忽略误判为支持。"""
 
 from copy import deepcopy
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional
 
@@ -21,13 +22,16 @@ from src.llm_models.openai_compat import (
 )
 
 
-ThinkingProbeMode = Literal["thinking_type", "enable_thinking", "reasoning_effort_nested", "reasoning_effort"]
+ThinkingProbeMode = Literal["thinking_type", "enable_thinking", "reasoning_effort_nested", "reasoning_effort", "google_native"]
 PROBE_MODES: List[ThinkingProbeMode] = [
     "thinking_type", "enable_thinking", "reasoning_effort_nested", "reasoning_effort",
 ]
+GEMINI_PROBE_MODES: List[ThinkingProbeMode] = ["google_native"]
 PROBE_TIMEOUT_SECONDS = 20.0
 PROBE_BATCH_SIZE = 2
 PROBE_MAX_TOKENS = 1024
+PROBE_MAX_OUTPUT_TOKENS = 4096
+"""Gemini 原生探測的輸出上限：思考 token 也計入輸出，1024 容易截斷最終答案。"""
 PROBE_PROMPT = (
     "A box contains 12 red, 9 blue and 7 green balls. Without looking, what is the minimum number "
     "of balls you must draw to guarantee at least 4 balls of the same color? Give only the answer."
@@ -279,6 +283,63 @@ async def _request_probe(
     return observation
 
 
+def _read_google_native_response(payload: Dict[str, Any]) -> ProbeObservation:
+    observation = ProbeObservation()
+    usage = payload.get("usageMetadata")
+    if isinstance(usage, dict):
+        count = usage.get("thoughtsTokenCount")
+        if isinstance(count, (int, float)) and count > 0:
+            observation.reasoning = True
+    candidates = payload.get("candidates")
+    if not isinstance(candidates, list) or not candidates or not isinstance(candidates[0], dict):
+        return observation
+    content = candidates[0].get("content")
+    parts = content.get("parts") if isinstance(content, dict) else None
+    if isinstance(parts, list):
+        for part in parts:
+            if not isinstance(part, dict) or not isinstance(part.get("text"), str):
+                continue
+            if part.get("thought"):
+                # 思考正文只證明思考已開啟，不參與答案比對。
+                observation.reasoning = True
+            else:
+                observation.text += part["text"]
+    finish = candidates[0].get("finishReason")
+    observation.refused = finish in {"SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "RECITATION", "SPIKE"}
+    observation.complete = finish == "STOP" and bool(observation.text.strip())
+    return observation
+
+
+async def _request_google_native(
+    http_client: httpx.AsyncClient, provider: APIProvider, base_url: str, model_identifier: str, enabled: bool
+) -> ProbeObservation:
+    # Gemini 原生思考由 thinkingConfig 控制：budget -1 自動開啟、0 明確關閉。
+    body = {
+        "contents": [{"role": "user", "parts": [{"text": PROBE_PROMPT}]}],
+        "generationConfig": {
+            "maxOutputTokens": PROBE_MAX_OUTPUT_TOKENS,
+            "thinkingConfig": {"includeThoughts": True, "thinkingBudget": -1 if enabled else 0},
+        },
+    }
+    headers = {"x-goog-api-key": provider.api_key} if provider.api_key else {}
+    response = await http_client.post(
+        f"{base_url.rstrip('/')}/models/{model_identifier}:generateContent", json=body, headers=headers
+    )
+    response.raise_for_status()
+    return _read_google_native_response(response.json())
+
+
+def _describe_probe_http_status(code: int) -> str:
+    """上游 HTTP 錯誤的界面描述；錯誤正文可能回顯請求頭或金鑰，只暴露狀態碼與類別。"""
+    if code in {401, 403}:
+        return f"提供商鉴权失败（HTTP {code}），请检查密钥和权限"
+    if code == 429:
+        return "提供商限流或额度不足（HTTP 429），已停止测试"
+    if code == 404:
+        return "提供商接口或模型不存在（HTTP 404），请检查地址和模型标识"
+    return f"上游拒绝此参数模式（HTTP {code}）"
+
+
 def _compare_observations(enabled: ProbeObservation, disabled: ProbeObservation) -> str:
     if (
         not enabled.complete or not disabled.complete or not enabled.text.strip() or not disabled.text.strip()
@@ -319,7 +380,10 @@ async def probe_thinking(
     request: ThinkingProbeRequest,
     should_stop: Optional[Callable[[], Awaitable[bool]]] = None,
 ) -> ThinkingProbeResponse:
-    """每批并行两个模式，分两批最多执行八次对照生成；不重试生成失败，无法确认时保留原配置。"""
+    """每批并行两个模式，分两批最多执行八次对照生成；不重试生成失败，无法确认时保留原配置。
+
+    Gemini 原生客戶端只探測 google_native 一個模式，直接走 REST 開關對照。
+    """
     # 预算字段协商只影响本次探测，不能修改调用方传入的模型草稿。
     request = request.model_copy(deep=True)
     client_config = build_openai_compatible_client_config(provider)
@@ -328,6 +392,8 @@ async def probe_thinking(
     matches: List[ThinkingProbeMode] = []
     stopped = asyncio.Event()
     stop_check_lock = asyncio.Lock()
+    # Gemini 原生客戶端走 REST 對照探測，其餘客戶端維持四種 OpenAI 方言模式。
+    modes: List[ThinkingProbeMode] = GEMINI_PROBE_MODES if provider.client_type == "gemini" else PROBE_MODES
 
     async def stop_requested() -> bool:
         if stopped.is_set():
@@ -346,32 +412,46 @@ async def probe_thinking(
     async with httpx.AsyncClient(
         verify=await get_shared_ssl_context_async(), timeout=PROBE_TIMEOUT_SECONDS, follow_redirects=False
     ) as http_client:
-        async with await asyncio.to_thread(_create_probe_client, client_config, provider, http_client) as client:
+        async with AsyncExitStack() as stack:
+            client: Optional[AsyncOpenAI] = None
+            if provider.client_type != "gemini":
+                client = await stack.enter_async_context(
+                    await asyncio.to_thread(_create_probe_client, client_config, provider, http_client)
+                )
+
             async def probe_mode(mode: ThinkingProbeMode) -> Optional[ThinkingProbeAttempt]:
+                async def request_side(enabled: bool) -> Optional[ProbeObservation]:
+                    if client is not None:
+                        return await _request_probe(client, provider, request, mode, enabled, should_stop=stop_requested)
+                    # Gemini 原生客戶端不經 OpenAI SDK，直接走 REST 對照探測。
+                    return await _request_google_native(
+                        http_client, provider, client_config.base_url, request.model_identifier, enabled
+                    )
+
                 try:
                     if await stop_requested():
                         return None
                     async with asyncio.timeout(PROBE_TIMEOUT_SECONDS):
-                        enabled = await _request_probe(client, provider, request, mode, True, should_stop=stop_requested)
+                        enabled = await request_side(True)
                     if enabled is None or await stop_requested():
                         return None
                     async with asyncio.timeout(PROBE_TIMEOUT_SECONDS):
-                        disabled = await _request_probe(client, provider, request, mode, False, should_stop=stop_requested)
+                        disabled = await request_side(False)
                     if disabled is None:
                         return None
                 except APIStatusError as error:
-                    code = error.status_code
-                    # 上游错误正文可能回显请求头或密钥，只向界面提供状态码与诊断类别。
-                    message = f"上游拒绝此参数模式（HTTP {code}）"
-                    if code in {401, 403}:
-                        message = f"提供商鉴权失败（HTTP {code}），请检查密钥和权限"
-                    elif code == 429:
-                        message = "提供商限流或额度不足（HTTP 429），已停止测试"
-                    elif code == 404:
-                        message = "提供商接口或模型不存在（HTTP 404），请检查地址和模型标识"
-                    if code not in {400, 422}:
+                    if error.status_code not in {400, 422}:
                         stopped.set()
-                    return ThinkingProbeAttempt(mode=mode, status="rejected", message=message)
+                    return ThinkingProbeAttempt(
+                        mode=mode, status="rejected", message=_describe_probe_http_status(error.status_code)
+                    )
+                except httpx.HTTPStatusError as error:
+                    # 原生探測的錯誤分類與 SDK 路徑一致；HTTPStatusError 須先於 HTTPError 攔截。
+                    if error.response.status_code not in {400, 422}:
+                        stopped.set()
+                    return ThinkingProbeAttempt(
+                        mode=mode, status="rejected", message=_describe_probe_http_status(error.response.status_code)
+                    )
                 except (TimeoutError, APIConnectionError, httpx.HTTPError) as error:
                     message = (
                         "测试请求超时，已停止测试"
@@ -386,12 +466,12 @@ async def probe_thinking(
 
             # 每批全部完成才启动下一批；每个模式内部先开后关，最多同时两个上游请求。
             # gather 按候选顺序返回，避免响应速度影响自动选中的参数格式。
-            for start in range(0, len(PROBE_MODES), PROBE_BATCH_SIZE):
+            for start in range(0, len(modes), PROBE_BATCH_SIZE):
                 if await stop_requested():
                     break
                 tasks = [
                     asyncio.create_task(probe_mode(mode))
-                    for mode in PROBE_MODES[start:start + PROBE_BATCH_SIZE]
+                    for mode in modes[start:start + PROBE_BATCH_SIZE]
                 ]
                 try:
                     batch_attempts = await asyncio.gather(*tasks)

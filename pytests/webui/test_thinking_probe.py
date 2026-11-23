@@ -680,6 +680,64 @@ async def test_only_top_level_reasoning_effort_controls_hidden_reasoning(
     assert [body.get("reasoning_effort") for body in bodies] == [None, None, None, None, None, None, "high", "off"]
 
 
+class _MockedAsyncClient(httpx.AsyncClient):
+    """讓探測內部建立的 httpx 客戶端走 MockTransport，隔離真實網路。"""
+
+    responder = None  # type: ignore[assignment]
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs["transport"] = httpx.MockTransport(type(self).responder)
+        super().__init__(*args, **kwargs)
+
+
+@pytest.mark.asyncio
+async def test_google_native_matched_by_thinking_budget_toggle(isolated_probe, monkeypatch: pytest.MonkeyPatch) -> None:
+    probe, provider, request = isolated_probe
+    provider.client_type = "gemini"
+    seen: List[httpx.Request] = []
+
+    def respond(http_request: httpx.Request) -> httpx.Response:
+        seen.append(http_request)
+        body = json.loads(http_request.content)
+        budget = body["generationConfig"]["thinkingConfig"]["thinkingBudget"]
+        parts = [{"text": "13"}] if budget == 0 else [{"text": "推理过程", "thought": True}, {"text": "13"}]
+        return httpx.Response(200, json={
+            "candidates": [{"content": {"parts": parts}, "finishReason": "STOP"}],
+            "usageMetadata": {"thoughtsTokenCount": 0 if budget == 0 else 64},
+        })
+
+    _MockedAsyncClient.responder = respond
+    monkeypatch.setattr(probe.httpx, "AsyncClient", _MockedAsyncClient)
+    result = await probe.probe_thinking(provider, request)
+    assert result.status == "matched"
+    assert result.matches == ["google_native"]
+    assert [attempt.status for attempt in result.attempts] == ["matched"]
+    assert len(seen) == 2
+    assert seen[0].url.path == "/v1/models/unsaved-model:generateContent"
+    assert seen[0].headers["x-goog-api-key"] == "secret-test-key"
+    budgets = [json.loads(r.content)["generationConfig"]["thinkingConfig"]["thinkingBudget"] for r in seen]
+    assert budgets == [-1, 0]
+
+
+@pytest.mark.asyncio
+async def test_google_native_rejected_when_upstream_refuses_thinking_config(isolated_probe, monkeypatch: pytest.MonkeyPatch) -> None:
+    probe, provider, request = isolated_probe
+    provider.client_type = "gemini"
+    calls: List[httpx.Request] = []
+
+    def respond(http_request: httpx.Request) -> httpx.Response:
+        calls.append(http_request)
+        return httpx.Response(400, json={"error": {"message": "Thinking budget is not supported for this model."}})
+
+    _MockedAsyncClient.responder = respond
+    monkeypatch.setattr(probe.httpx, "AsyncClient", _MockedAsyncClient)
+    result = await probe.probe_thinking(provider, request)
+    assert result.status == "inconclusive"
+    assert [(attempt.mode, attempt.status) for attempt in result.attempts] == [("google_native", "rejected")]
+    assert len(calls) == 1
+    assert "Thinking budget" not in result.model_dump_json()
+
+
 @pytest.fixture
 def probe_route(monkeypatch: pytest.MonkeyPatch):
     model_routes = load_model_routes(monkeypatch)

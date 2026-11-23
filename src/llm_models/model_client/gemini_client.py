@@ -151,6 +151,20 @@ GEMINI_FALLBACK_THOUGHT_SIGNATURE = b"skip_thought_signature_validator"
 """当历史 function call 没有原始 thought signature 时，使用官方允许的占位签名跳过校验。"""
 
 
+def _supports_thinking_config(model_identifier: str) -> bool:
+    """判断模型是否接受 `thinking_config`。
+
+    Args:
+        model_identifier: 请求实际使用的模型标识。
+
+    Returns:
+        bool: Gemma 等无思考能力的模型返回 False（发送会被 Google 拒绝为
+        400 INVALID_ARGUMENT），其余 Gemini 系列返回 True。
+    """
+
+    return not model_identifier.startswith("gemma")
+
+
 def _normalize_image_mime_type(image_format: str) -> str:
     """将图片格式名称转换为标准 MIME 类型。
 
@@ -918,7 +932,7 @@ class GeminiClient(AdapterClient[AsyncIterator[GenerateContentResponse], Generat
             config_payload["response_modalities"] = ["TEXT"]
         if "safety_settings" not in config_payload:
             config_payload["safety_settings"] = GEMINI_SAFE_SETTINGS
-        if "thinking_config" not in config_payload:
+        if "thinking_config" not in config_payload and _supports_thinking_config(model_identifier):
             config_payload["thinking_config"] = ThinkingConfig(
                 include_thoughts=bool(extra_params.get("include_thoughts", True)),
                 thinking_budget=self.clamp_thinking_budget(extra_params, model_identifier),
