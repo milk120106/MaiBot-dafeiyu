@@ -192,12 +192,15 @@ class FocusToolRouter:
     def deferred_notice(self) -> str:
         session_ids = {sid for sid, runtime in self.group.members.items() if self.group.is_member_valid(runtime)}
         lines = [
-            f"- {name}: {route.spec.description}"
+            f"- {name}"
             + (f" (session_ids={','.join(route.variants)})" if set(route.variants) != session_ids else "")
             for name, route in self.routes.items()
             if not self.is_default_visible(route.spec)
         ]
-        return "<deferred_tools>\n" + "\n".join(lines) + "\n</deferred_tools>" if lines else ""
+        if not lines:
+            return ""
+        header = "以下工具僅列名稱；需要使用時先呼叫 tool_search 取得完整說明與參數。"
+        return "<deferred_tools>\n" + header + "\n" + "\n".join(lines) + "\n</deferred_tools>"
 
     async def invoke(
         self,
