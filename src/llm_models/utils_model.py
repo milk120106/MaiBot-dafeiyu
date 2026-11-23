@@ -979,9 +979,11 @@ class LLMOrchestrator:
             if cooled:
                 selectable = {name for name, key in name_keys if key in set(available_keys)}
                 if selectable:
+                    skipped_names = [name for name, key in name_keys if key in cooled]
                     summary = (
                         f"模型額度冷卻中，本次跳過 {len(cooled)} 個模型"
-                        f"（最快 {time.strftime('%m-%d %H:%M', time.localtime(min(cooled.values())))} 解禁）"
+                        f"（{', '.join(skipped_names)}；"
+                        f"最快 {time.strftime('%m-%d %H:%M', time.localtime(min(cooled.values())))} 解禁）"
                     )
                 else:
                     soonest_name, soonest_until = min(
