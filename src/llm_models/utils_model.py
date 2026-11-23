@@ -34,6 +34,15 @@ from src.llm_models.exceptions import (
     RespNotOkException,
     RespParseException,
 )
+from src.llm_models.quota_cooldown import (
+    MAX_COOLDOWN_SECONDS,
+    MINUTE_COOLDOWN_SECONDS,
+    make_key,
+    mark_cooldown,
+    next_daily_reset_ts,
+    parse_quota_feedback,
+    partition as partition_cooldown,
+)
 from src.llm_models.model_client.base_client import (
     APIResponse,
     AudioTranscriptionRequest,
@@ -919,6 +928,17 @@ class LLMOrchestrator:
             )
         raise ValueError(f"不支持的请求类型: {request_type}")
 
+    _last_cooldown_log_summary: str = ""
+
+    def _cooldown_key(self, model_name: str) -> str:
+        """把配置中的模型名映射為「供應商+模型標識」冷卻鍵。"""
+        model_info = TempMethodsLLMUtils.get_model_info_by_name(model_name)
+        return make_key(model_info.api_provider, model_info.model_identifier)
+
+    def _all_models_cooled(self) -> bool:
+        available, _ = partition_cooldown([self._cooldown_key(name) for name in self.model_usage])
+        return not available
+
     async def _select_model(
         self,
         exclude_models: Optional[Set[str]] = None,
@@ -951,6 +971,32 @@ class LLMOrchestrator:
 
         if not available_models:
             raise RuntimeError("没有可用的模型可供选择。所有模型均已尝试失败。")
+
+        if not requested_model_name:
+            # 免費層額度按「供應商+模型標識」獨立計算，冷卻中的模型在重置前不再選用。
+            name_keys = [(name, self._cooldown_key(name)) for name in available_models]
+            available_keys, cooled = partition_cooldown([key for _, key in name_keys])
+            if cooled:
+                selectable = {name for name, key in name_keys if key in set(available_keys)}
+                if selectable:
+                    summary = (
+                        f"模型額度冷卻中，本次跳過 {len(cooled)} 個模型"
+                        f"（最快 {time.strftime('%m-%d %H:%M', time.localtime(min(cooled.values())))} 解禁）"
+                    )
+                else:
+                    soonest_name, soonest_until = min(
+                        ((name, cooled[key]) for name, key in name_keys), key=lambda item: item[1]
+                    )
+                    summary = (
+                        f"所有候选模型均在额度冷却中，本次仍选用最快解禁的 '{soonest_name}'"
+                        f"（预计 {time.strftime('%m-%d %H:%M', time.localtime(soonest_until))} 解禁）"
+                    )
+                    selectable = {soonest_name}
+                if summary != self._last_cooldown_log_summary:
+                    # 冷卻狀態未變化時不重複刷日誌。
+                    self._last_cooldown_log_summary = summary
+                    logger.warning(summary)
+                available_models = {name: scores for name, scores in available_models.items() if name in selectable}
 
         if self.task_name in EMBEDDING_TASK_NAMES:
             # 嵌入模型的向量空间必须保持一致，多模型间随机或均衡切换会污染向量库，
@@ -1198,9 +1244,30 @@ class LLMOrchestrator:
                     original_response_request,
                 )
 
+                if e.status_code == 429:
+                    quota_kind, quota_delay_seconds, quota_models = parse_quota_feedback(f"{e} {original_error_info}")
+                    if quota_kind == "daily":
+                        # Google 的 429 直接給出精確重試時間與實際計額模型（別名模型共享額度池）。
+                        if quota_delay_seconds:
+                            until_ts = time.time() + min(quota_delay_seconds, MAX_COOLDOWN_SECONDS)
+                        else:
+                            until_ts = next_daily_reset_ts()
+                        counted_models = [model_info.model_identifier, *[m for m in quota_models if m != model_info.model_identifier]]
+                        for counted in counted_models:
+                            mark_cooldown(make_key(model_info.api_provider, counted), until_ts)
+                        logger.error(
+                            f"任务 '{task_display}' 的模型 '{model_info.name}' 日额度已耗尽"
+                            f"（计额模型: {'、'.join(counted_models)}），"
+                            f"冷却至 {time.strftime('%m-%d %H:%M', time.localtime(until_ts))} 并切换下一个模型。{original_error_info}"
+                        )
+                        raise ModelAttemptFailed(f"模型 '{model_info.name}' 日额度耗尽", original_exception=e) from e
+
                 if e.status_code == 429 or e.status_code >= 500:
                     retry_remain -= 1
                     if retry_remain <= 0:
+                        if e.status_code == 429:
+                            # 非日額度的 429（速率限制或無法判讀）短冷卻，避免後續請求立刻繼續選用。
+                            mark_cooldown(self._cooldown_key(model_info.name), time.time() + MINUTE_COOLDOWN_SECONDS)
                         logger.error(
                             f"任务 '{task_display}' 的模型 '{model_info.name}' 在遇到 {e.status_code} 错误并用尽重试次数后仍然失败。{original_error_info}"
                         )
@@ -1482,6 +1549,10 @@ class LLMOrchestrator:
                 logger.warning(f"模型 '{model_info.name}' 尝试失败，切换到下一个模型。原因: {e}")
                 self._adjust_model_usage(model_info.name, penalty_delta=1, usage_penalty_delta=-1)
                 failed_models_this_request.add(model_info.name)
+                if "日额度耗尽" in str(e) and self._all_models_cooled():
+                    # 全池日額度都已耗盡時不再逐個撞 429，直接失敗等重置。
+                    logger.error("所有模型的日额度均已耗尽，停止本次请求的模型轮换。")
+                    break
                 if model_index < max_attempts - 1:
                     await asyncio.to_thread(update_failed_request_attempt, last_exception, status="switching_model")
 
