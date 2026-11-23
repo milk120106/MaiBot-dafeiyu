@@ -1,8 +1,8 @@
 <subagent_result id="{task_id}" status="{status}">
-你派发的子代理任务已结束。任务：{task_preview}
+你派發的子代理任務已結束。任務：{task_preview}
 工具使用：{tool_usage}
-结论：
+結論：
 {conclusion}
-错误信息：{error_message}
-请结合当前聊天自行决定是否使用这个结论，以及是否需要回复。
+錯誤資訊：{error_message}
+請結合當前聊天自行決定是否使用這個結論，以及是否需要回復。
 </subagent_result>

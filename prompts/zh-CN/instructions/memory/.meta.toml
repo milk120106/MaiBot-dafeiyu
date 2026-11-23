@@ -1,15 +1,15 @@
 [heuristic_memory_impression]
-display_name = "记忆启发印象"
+display_name = "記憶啟發印象"
 advanced = true
-description = "用于根据当前聊天流和最近消息生成自然语言聊天印象，辅助长期记忆语义召回。"
+description = "用於根據當前聊天流和最近訊息生成自然語言聊天印象，輔助長期記憶語義召回。"
 
 [planner_memory_group]
-display_name = "群聊记忆使用策略"
+display_name = "群聊記憶使用策略"
 advanced = false
-description = "按触发场景加载的指令模板；与主要 Prompt 分开编辑。"
+description = "按觸發場景載入的指令模板；與主要 Prompt 分開編輯。"
 
 [planner_memory_private]
-display_name = "私聊记忆使用策略"
+display_name = "私聊記憶使用策略"
 advanced = false
-description = "按触发场景加载的指令模板；与主要 Prompt 分开编辑。"
+description = "按觸發場景載入的指令模板；與主要 Prompt 分開編輯。"
 

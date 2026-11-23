@@ -1,29 +1,29 @@
 [agent_acp_environment]
-display_name = "外接 Agent 环境说明"
+display_name = "外接 Agent 環境說明"
 advanced = true
-description = "外接 Agent 环境说明。"
+description = "外接 Agent 環境說明。"
 
 [agent_acp_failure]
-display_name = "外接 Agent 失败回报"
+display_name = "外接 Agent 失敗回報"
 advanced = true
-description = "外接 Agent 失败回报。"
+description = "外接 Agent 失敗回報。"
 
 [agent_planner_resume]
-display_name = "外接 Planner 中断恢复"
+display_name = "外接 Planner 中斷恢復"
 advanced = true
-description = "外接 Planner 中断恢复。"
+description = "外接 Planner 中斷恢復。"
 
 [agent_planner_continue]
-display_name = "外接 Planner 继续执行"
+display_name = "外接 Planner 繼續執行"
 advanced = true
-description = "外接 Planner 继续执行。"
+description = "外接 Planner 繼續執行。"
 
 [subagent_final_round]
-display_name = "子代理最后一轮指令"
+display_name = "子代理最後一輪指令"
 advanced = false
-description = "按触发场景加载的指令模板；与主要 Prompt 分开编辑。"
+description = "按觸發場景載入的指令模板；與主要 Prompt 分開編輯。"
 
 [subagent_finished]
 display_name = "子代理完成指令"
 advanced = false
-description = "按触发场景加载的指令模板；与主要 Prompt 分开编辑。"
+description = "按觸發場景載入的指令模板；與主要 Prompt 分開編輯。"

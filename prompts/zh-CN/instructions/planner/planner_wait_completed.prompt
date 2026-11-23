@@ -1,4 +1,4 @@
-[等待结束]
-本次等待状态：{wait_state}
-以上字段中 elapsed_seconds 是实际等待秒数，requested_seconds 是原计划秒数（null 表示未记录时长），has_new_messages 表示期间是否收到新输入。
-有新消息时结合新消息重新判断，否则基于现有上下文继续思考。
+[等待結束]
+本次等待狀態：{wait_state}
+以上欄位中 elapsed_seconds 是實際等待秒數，requested_seconds 是原計劃秒數（null 表示未記錄時長），has_new_messages 表示期間是否收到新輸入。
+有新訊息時結合新訊息重新判斷，否則基於現有上下文繼續思考。

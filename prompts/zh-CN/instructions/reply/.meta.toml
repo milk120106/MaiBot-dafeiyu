@@ -1,16 +1,16 @@
 [reply_attachments]
-display_name = "回复附件提示"
+display_name = "回覆附件提示"
 advanced = true
-description = "说明回复附带的图片、@ 和表情包由系统发送，避免正文重复输出附件信息。"
+description = "說明回覆附帶的圖片、@ 和表情包由系統傳送，避免正文重複輸出附件資訊。"
 
 [reply_supplement_retry]
-display_name = "回复补充重试"
+display_name = "回覆補充重試"
 advanced = true
-description = "回复补充生成失败后，根据错误信息重新生成补充编排。"
+description = "回覆補充生成失敗後，根據錯誤資訊重新生成補充編排。"
 
 
 [reply_conversation_analysis]
-display_name = "对话分析参考"
+display_name = "對話分析參考"
 advanced = true
-description = "对话局面与关键事实的消息文案；分析内容来自 reply 工具的 chat_anlyze。"
+description = "對話局面與關鍵事實的訊息文案；分析內容來自 reply 工具的 chat_anlyze。"
 

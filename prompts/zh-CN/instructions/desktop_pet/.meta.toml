@@ -1,20 +1,20 @@
 [desktop_pet_proactive_wake]
-display_name = "桌宠定期主动思考"
+display_name = "桌寵定期主動思考"
 advanced = false
-description = "桌宠周期唤醒时的内部任务提示，引导自主探索并选择是否交流。"
+description = "桌寵週期喚醒時的內部任務提示，引導自主探索並選擇是否交流。"
 
 [desktop_pet_screen_read]
-display_name = "桌宠桌面阅读"
+display_name = "桌寵桌面閱讀"
 advanced = false
-description = "理解本机主屏截图，支持单次查看和持续关注画面变化。"
+description = "理解本機主屏截圖，支援單次檢視和持續關注畫面變化。"
 
 [desktop_pet_todo_context]
-display_name = "主人待办常驻上下文"
+display_name = "主人待辦常駐上下文"
 advanced = false
-description = "每轮读取最新待办，并指导条件触发判断。"
+description = "每輪讀取最新待辦，並指導條件觸發判斷。"
 
 [desktop_pet_exploration_reuse]
-display_name = "探索经验日常复用"
+display_name = "探索經驗日常複用"
 advanced = false
-description = "普通主人聊天按需检索并复用探索资源和经验。"
+description = "普通主人聊天按需檢索並複用探索資源和經驗。"
 
