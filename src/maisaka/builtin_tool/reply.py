@@ -160,12 +160,19 @@ def get_tool_spec(context: Optional[ToolAvailabilityContext] = None) -> ToolSpec
             "description": (
                 "用一段话，约100-200字描述当前对话局面与查到的关键事实：如同转述一样梳理上文核心逻辑，"
                 "提炼通过搜索或工具查证到的关键事实结论，不写入长段原文时间戳或者具体的消息ID。"
-                "不要原文引用，不评价回复价值、不写回复原因、不构想或指导如何回复。"
+                "若刚调用过工具且需要把工具输出转达给对方（如翻译文本、时间、计算结果、查询内容等），"
+                "必须将具体的工具结果原样写入此处，否则回复端看不到工具返回内容。"
+                "不要原文引用聊天记录，不评价回复价值、不写回复原因、不构想或指导如何回复。"
             ),
         },
         "reply_style": {
             "type": "string",
-            "description": "控制本次回复的篇幅和表达方式，当其他人回复都偏短时使用正常回复或者简短表达。当需要解释说明复杂问题时使用长回复，其他情况视情况决定。",
+            "description": (
+                "控制本次回复的篇幅和表达方式，当其他人回复都偏短时使用正常回复或者简短表达。"
+                "当需要解释说明复杂问题时使用长回复，其他情况视情况决定。"
+                "注意：此栏位的值必须与枚举完全一致地以简体字输出（简短表达/正常回复/长回复），"
+                "不得转写为繁体，否则参数校验会失败；回复正文本身仍按人设使用繁体中文。"
+            ),
             "enum": ["简短表达", "正常回复", "长回复"],
         },
     }
@@ -368,14 +375,17 @@ async def _resolve_reply_quote(
     text: str,
     target_message: Optional[SessionMessage],
     bot_user_id: str,
+    force_quote: bool = False,
 ) -> Tuple[bool, Optional[float]]:
-    """群聊和私聊分别按固定公式及频率决定引用。"""
+    """群聊和私聊分别按固定公式及频率决定引用；Planner 明确指定 msg_id 时直接引用。"""
     if target_message is None:
         return False, 0.0
     stream = tool_ctx.runtime.chat_stream
     frequency = get_scene(stream.is_group_session).quote_frequency
     if frequency == "never" or stream.platform == CLI_PLATFORM_NAME:
         return False, 0.0
+    if force_quote:
+        return True, 1.0
     return decide_quote(
         context=tool_ctx.runtime.get_reply_quote_context(target_message), bot_user_id=bot_user_id,
         text=text, frequency=frequency, is_group=stream.is_group_session,
@@ -571,6 +581,8 @@ async def _execute_reply(
                     f"未找到要回复的目标消息，msg_id={to_display_message_id(target_message_id)}",
                 )
     invocation_arguments["msg_id"] = target_message_id
+    # Planner 明確填了 msg_id 即代表要看得见地在回某一句，不再走随机抽签。
+    explicit_quote_target = bool(target_message_id)
 
     context = ToolAvailabilityContext(
         session_id=tool_ctx.runtime.session_id, stream_id=tool_ctx.runtime.session_id,
@@ -829,7 +841,9 @@ async def _execute_reply(
         if body.strip():
             first_reply_index, first_text = index, body
             break
-    set_quote, quote_probability = await _resolve_reply_quote(tool_ctx, first_text, target_message, bot_user_id)
+    set_quote, quote_probability = await _resolve_reply_quote(
+        tool_ctx, first_text, target_message, bot_user_id, force_quote=explicit_quote_target
+    )
     if supplement is not None:
         reply_metadata["reply_supplement"] = {**supplement.metadata, "status": "completed"}
     # 补充器选中的引用同样遵守群聊/私聊的三档频率与 CLI 平台限制。
