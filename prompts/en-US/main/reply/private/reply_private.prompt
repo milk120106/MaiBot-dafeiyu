@@ -8,4 +8,4 @@ You are chatting with {sender_name}. This is what you talked about before:
 {planner_reasoning}
 {reply_guidance}
 {reply_style}
-Do not output anything extra (no prefixes or suffixes, colons, quotes, brackets, stickers). Only output the reply content.
+Do not output anything extra (no prefixes or suffixes, colons, quotes, brackets, stickers). Only output the reply content.  If the reply style or platform rules above explicitly require {{name}} braces or platform syntax such as <@id>, follow them; they are not "extra content".

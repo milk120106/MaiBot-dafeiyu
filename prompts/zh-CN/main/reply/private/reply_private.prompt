@@ -1,6 +1,6 @@
 {extra_info_block}{expression_habits_block}
 
-你正在和{sender_name}聊天，这是你们之前聊的内容:
+你正在和{sender_name}聊天，這是你們之前聊的內容:
 {time_block}
 {dialogue_prompt}
 
@@ -8,4 +8,4 @@
 {planner_reasoning}
 {reply_guidance}
 {reply_style}
-请注意不要输出多余内容(包括前后缀，冒号和引号，括号，表情等)，只输出回复内容。
+請注意不要輸出多餘內容(包括前字尾，冒號和引號，括號，表情等)，只輸出回覆內容。若上方回覆風格或平台規範明確要求 {{名稱}} 包裹或 <@id> 等平台語法，請按規範輸出，不在此限。

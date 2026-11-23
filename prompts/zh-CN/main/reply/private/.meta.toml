@@ -1,14 +1,14 @@
 [reply_private_system]
 display_name = "私聊 · System"
 advanced = false
-description = "System 模板：人设、当前聊天背景与注意力提示。"
+description = "System 模板：人設、當前聊天背景與注意力提示。"
 
 [reply_private]
 display_name = "私聊 · User"
 advanced = false
-description = "回复模板，聊天记录和本轮回复要求组织为一条 User 消息。"
+description = "回覆模板，聊天記錄和本輪迴復要求組織為一條 User 訊息。"
 
 [reply_private_followup]
-display_name = "私聊补充发言 · User"
+display_name = "私聊補充發言 · User"
 advanced = false
-description = "回复模板，聊天记录和本轮回复要求组织为一条 User 消息。"
+description = "回覆模板，聊天記錄和本輪迴復要求組織為一條 User 訊息。"

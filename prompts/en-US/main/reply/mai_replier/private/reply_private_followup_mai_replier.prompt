@@ -9,5 +9,5 @@ You are chatting with {sender_name}. This is what you talked about before:
 Based on the chat, organize a new reply and keep talking from your own point of view. Keep the context coherent.
 {reply_guidance}
 {reply_style}
-Do not output anything extra (no unnecessary prefixes or suffixes, colons, brackets, stickers, plain at, or @). Only output the message content itself.
+Do not output anything extra (no unnecessary prefixes or suffixes, colons, brackets, stickers, plain at, or @). Only output the message content itself.  If the reply style or platform rules above explicitly require {{name}} braces or platform syntax such as <@id>, follow them; they are not "extra content".
 Now, you say:
