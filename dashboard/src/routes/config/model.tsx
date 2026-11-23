@@ -1638,7 +1638,7 @@ function ModelConfigPageContent() {
             )}
 
             {editDialogOpen && editingModel && !deepSeekClientType && !thinkingFormatActive &&
-              (selectedClientType === 'openai' || selectedClientType === 'openai_responses') && (
+              (selectedClientType === 'openai' || selectedClientType === 'openai_responses' || selectedClientType === 'gemini') && (
               <ThinkingProbeControls
                 key={JSON.stringify([editingModel.api_provider, editingModel.model_identifier, selectedClientType, selectedProviderConfig?.base_url, editingModel.force_stream_mode])}
                 apiProvider={editingModel.api_provider}

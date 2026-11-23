@@ -2,7 +2,7 @@ import type { ThinkingProbeMode } from '@/lib/config-api'
 
 import { describe, expect, it } from 'vitest'
 
-import { applyThinkingProbeMode, isProbedThinkingEnabled, readThinkingProbeMode } from '../thinkingProbe'
+import { applyThinkingProbeMode, isProbedThinkingEnabled, readThinkingProbeMode, resetThinkingProbeMode } from '../thinkingProbe'
 
 const modes: ThinkingProbeMode[] = ['thinking_type', 'enable_thinking', 'reasoning_effort_nested']
 
@@ -85,5 +85,22 @@ describe('thinkingProbe 参数转换', () => {
     expect(readThinkingProbeMode({})).toBeNull()
     expect(readThinkingProbeMode({ thinking: null, enable_thinking: 'true', reasoning: [] })).toBeNull()
     expect(readThinkingProbeMode({ thinking: { type: 'enabled' }, body: { enable_thinking: true } })).toBeNull()
+  })
+
+  it('google_native 开关映射 thinking_budget -1/0，清除后回到服务商默认', () => {
+    const enabled = applyThinkingProbeMode({ temperature: 0.7 }, 'google_native', true)
+    expect(enabled.thinking_budget).toBe(-1)
+    expect(readThinkingProbeMode(enabled)).toBe('google_native')
+    expect(isProbedThinkingEnabled(enabled, 'google_native')).toBe(true)
+
+    const disabled = applyThinkingProbeMode(enabled, 'google_native', false)
+    expect(disabled.thinking_budget).toBe(0)
+    expect(readThinkingProbeMode(disabled)).toBe('google_native')
+    expect(isProbedThinkingEnabled(disabled, 'google_native')).toBe(false)
+    expect(disabled.temperature).toBe(0.7)
+
+    const cleared = resetThinkingProbeMode(disabled)
+    expect(cleared).not.toHaveProperty('thinking_budget')
+    expect(readThinkingProbeMode(cleared)).toBeNull()
   })
 })

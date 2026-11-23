@@ -5,6 +5,7 @@ export const THINKING_PROBE_LABELS: Record<ThinkingProbeMode, string> = {
   enable_thinking: 'enable_thinking',
   reasoning_effort_nested: 'reasoning.effort',
   reasoning_effort: 'reasoning_effort（high / off）',
+  google_native: 'thinking_config.thinking_budget（Gemini 原生）',
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -30,12 +31,17 @@ export function readThinkingProbeMode(params: Record<string, unknown>): Thinking
   if (typeof effective.reasoning_effort === 'string' && ['off', 'low', 'medium', 'high', 'xhigh', 'max'].includes(effective.reasoning_effort)) {
     modes.push('reasoning_effort')
   }
+  // Gemini 原生客戶端把思考預算放在頂層 thinking_budget（-1 自動 / 0 關閉 / 正數明細預算）。
+  if (typeof effective.thinking_budget === 'number' && Number.isFinite(effective.thinking_budget)) {
+    modes.push('google_native')
+  }
   return modes.length === 1 ? modes[0] : null
 }
 
 export function isProbedThinkingEnabled(params: Record<string, unknown>, mode: ThinkingProbeMode): boolean {
   const effective = effectiveParams(params)
   if (mode === 'enable_thinking') return effective.enable_thinking === true
+  if (mode === 'google_native') return effective.thinking_budget !== 0
   if (mode === 'thinking_type') return isRecord(effective.thinking) && effective.thinking.type !== 'disabled'
   if (mode === 'reasoning_effort') return effective.reasoning_effort !== 'off'
   return isRecord(effective.reasoning) && effective.reasoning.effort !== 'none'
@@ -74,6 +80,7 @@ export function applyThinkingProbeMode(
   const next = resetThinkingProbeMode(params)
   if (mode === 'thinking_type') next.thinking = { type: enabled ? 'enabled' : 'disabled' }
   else if (mode === 'enable_thinking') next.enable_thinking = enabled
+  else if (mode === 'google_native') next.thinking_budget = enabled ? -1 : 0
   else if (mode === 'reasoning_effort') next.reasoning_effort = enabled ? 'high' : 'off'
   else {
     const reasoning = isRecord(effective.reasoning) ? effective.reasoning : {}

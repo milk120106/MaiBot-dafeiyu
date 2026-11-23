@@ -484,7 +484,7 @@ export function previewSpeech(
   })
 }
 
-export type ThinkingProbeMode = 'thinking_type' | 'enable_thinking' | 'reasoning_effort_nested' | 'reasoning_effort'
+export type ThinkingProbeMode = 'thinking_type' | 'enable_thinking' | 'reasoning_effort_nested' | 'reasoning_effort' | 'google_native'
 
 export interface ThinkingProbeResult {
   status: 'matched' | 'inconclusive'

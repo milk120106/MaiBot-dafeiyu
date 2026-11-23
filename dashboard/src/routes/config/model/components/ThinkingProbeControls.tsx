@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowLeftRight, Check, FlaskConical, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FormRow } from '@/components/ui/form-section'
+import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { probeModelThinking, type ThinkingProbeMode, type ThinkingProbeResult } from '@/lib/config-api'
@@ -138,6 +139,25 @@ export function ThinkingProbeControls({
                 {running ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="mr-1.5 h-3.5 w-3.5" />}
                 {running ? '正在测试…' : '自动测试'}
               </Button>
+            )}
+            {mode === 'google_native' && (
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                aria-label="思考预算"
+                className="w-28"
+                placeholder="预算 token"
+                value={typeof extraParams.thinking_budget === 'number' && extraParams.thinking_budget > 0
+                  ? String(extraParams.thinking_budget)
+                  : ''}
+                disabled={running || disabled}
+                onChange={(event) => {
+                  const parsed = parseInt(event.target.value, 10)
+                  // 预算框只承载正数预算；清空或负输入统一回到 -1 自动，开关仍可切到 0 关闭。
+                  onChange({ ...extraParams, thinking_budget: Number.isFinite(parsed) && parsed > 0 ? parsed : -1 })
+                }}
+              />
             )}
             {mode && (
               <Switch
