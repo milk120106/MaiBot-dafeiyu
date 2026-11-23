@@ -1,25 +1,25 @@
 [emoji_content_analysis]
-display_name = "表情包内容分析"
+display_name = "表情包內容分析"
 advanced = true
-description = "用于分析表情包图片内容的模板。"
+description = "用於分析表情包圖片內容的模板。"
 
 [emoji_grouped_tags]
-display_name = "表情包分组标签"
+display_name = "表情包分組標籤"
 advanced = true
-description = "分别识别表情包表达的情绪和画面内容。"
+description = "分別識別表情包表達的情緒和畫面內容。"
 
 [emoji_content_filtration]
-display_name = "表情包内容过滤"
+display_name = "表情包內容過濾"
 advanced = true
-description = "用于判断表情包内容是否符合过滤要求的模板。"
+description = "用於判斷表情包內容是否符合過濾要求的模板。"
 
 [emoji_replace]
-display_name = "表情包替换"
+display_name = "表情包替換"
 advanced = true
-description = "用于根据文本语境选择或替换表情包的模板。"
+description = "用於根據文字語境選擇或替換表情包的模板。"
 
 [image_description]
-display_name = "图片描述"
+display_name = "圖片描述"
 advanced = false
-description = "用于将图片内容转换为文本描述的模板。"
+description = "用於將圖片內容轉換為文字描述的模板。"
 

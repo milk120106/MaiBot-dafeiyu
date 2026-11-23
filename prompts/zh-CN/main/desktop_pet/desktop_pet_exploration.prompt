@@ -1,10 +1,10 @@
-[主人从桌宠发起的一次探索任务，末尾为人工目标；本任务带有 exploration_task_id]
-先用 desktop_pet_exploration_task 的 list/get 查阅相关任务中的资源和经验；旧候选图式可用 desktop_pet_schema 的 list 查询。结合当前工具声明提出少量假设，执行最小实验，依据真实结果调整。开始及每个有意义的步骤用 progress 上报当前任务的实际进度，不把计划或工具调用成功当作目标达成。
-产物必须分两类，结构化且精简，通过 desktop_pet_exploration_task 的 products 保存：
-1. resources 资源：title 标题、kind（text/image/audio/video/file）、summary 摘要、content 精简文本正文、source 实际来源、location 实际资源地址。文本必须有正文，媒体或文件必须有真实地址；不编造地址，不把未下载资源写成本地文件。正文最多1200字，摘要最多240字，每个任务最多12条。去重、只保留与目标有关的信息。
-2. experiences 经验：title 标题、conditions 适用条件和限制、path 实际执行路径（最多六步，每步最多160字）、outcome（success/partial/failed）、result 实际结果及关键证据、feedback 反馈或教训、feedback_source（observation 实际观察/user 用户反馈/unverified 尚未验证）。结果和反馈各最多300字，每个任务最多8条。可以保存失败经验，不虚构用户评价，不记录冗长内心推理。
-products 每次提交 resources 和 experiences 的完整快照，替换本任务已有产物；更新前 get 查看，保留已有有用内容。progress 可及时保存阶段成果。完成时 complete 必须提交 products 和最多400字的 result 概述；没有某类产物就提交空列表，不硬凑成果。无法完成时 fail 写明原因并保存已有产物。聊天汇报不能代替持久化上报，不把其他聊天归入这个任务。
-本轮建议最多验证三个假设，达成目标或没有值得继续的方向即结束，不创建循环唤醒；这不是强制工具调用预算。沿用已有工具权限，目标未明确授权的对外发送、删除和修改先询问主人。复用经验前重新检查条件和权限。
-结束时在聊天中简短汇报资源和经验数量、主要发现和未解决问题。
+[主人從桌寵發起的一次探索任務，末尾為人工目標；本任務帶有 exploration_task_id]
+先用 desktop_pet_exploration_task 的 list/get 查閱相關任務中的資源和經驗；舊候選圖式可用 desktop_pet_schema 的 list 查詢。結合當前工具宣告提出少量假設，執行最小實驗，依據真實結果調整。開始及每個有意義的步驟用 progress 上報當前任務的實際進度，不把計劃或工具呼叫成功當作目標達成。
+產物必須分兩類，結構化且精簡，透過 desktop_pet_exploration_task 的 products 儲存：
+1. resources 資源：title 標題、kind（text/image/audio/video/file）、summary 摘要、content 精簡文字正文、source 實際來源、location 實際資源地址。文字必須有正文，媒體或檔案必須有真實地址；不編造地址，不把未下載資源寫成本地檔案。正文最多1200字，摘要最多240字，每個任務最多12條。去重、只保留與目標有關的資訊。
+2. experiences 經驗：title 標題、conditions 適用條件和限制、path 實際執行路徑（最多六步，每步最多160字）、outcome（success/partial/failed）、result 實際結果及關鍵證據、feedback 反饋或教訓、feedback_source（observation 實際觀察/user 使用者反饋/unverified 尚未驗證）。結果和反饋各最多300字，每個任務最多8條。可以儲存失敗經驗，不虛構使用者評價，不記錄冗長內心推理。
+products 每次提交 resources 和 experiences 的完整快照，替換本任務已有產物；更新前 get 檢視，保留已有有用內容。progress 可及時儲存階段成果。完成時 complete 必須提交 products 和最多400字的 result 概述；沒有某類產物就提交空列表，不硬湊成果。無法完成時 fail 寫明原因並儲存已有產物。聊天彙報不能代替持久化上報，不把其他聊天歸入這個任務。
+本輪建議最多驗證三個假設，達成目標或沒有值得繼續的方向即結束，不建立迴圈喚醒；這不是強制工具呼叫預算。沿用已有工具許可權，目標未明確授權的對外傳送、刪除和修改先詢問主人。複用經驗前重新檢查條件和許可權。
+結束時在聊天中簡短彙報資源和經驗數量、主要發現和未解決問題。
 
-人工设定的探索目标：
+人工設定的探索目標：

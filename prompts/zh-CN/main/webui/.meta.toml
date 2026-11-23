@@ -1,5 +1,5 @@
 [webui_ai_search]
-display_name = "WebUI AI 搜索"
+display_name = "WebUI AI 搜尋"
 advanced = true
-description = "用于根据自然语言意图从 WebUI 提供的真实页面与配置候选中选择搜索结果。"
+description = "用於根據自然語言意圖從 WebUI 提供的真實頁面與配置候選中選擇搜尋結果。"
 

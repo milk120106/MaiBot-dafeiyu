@@ -1,10 +1,10 @@
 [desktop_pet_exploration]
-display_name = "桌宠探索任务"
+display_name = "桌寵探索任務"
 advanced = false
-description = "人工设定目标后探索工具组合，并保存有实验证据的候选图式。"
+description = "人工設定目標後探索工具組合，並儲存有實驗證據的候選圖式。"
 
 [desktop_pet_thinking_caption]
-display_name = "桌宠思考状态"
+display_name = "桌寵思考狀態"
 advanced = false
-description = "把当前运行阶段概括成一句简短风趣的桌宠状态文字。"
+description = "把當前執行階段概括成一句簡短風趣的桌寵狀態文字。"
 

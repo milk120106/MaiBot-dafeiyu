@@ -1,4 +1,4 @@
 [planner_focus]
-display_name = "Focus 共享规划器"
+display_name = "Focus 共享規劃器"
 advanced = true
-description = "Focus 模式的共享规划器，处理共享组内的多个聊天；私聊启用 Focus 后也使用此模板，通过 session_id 指定目标。"
+description = "Focus 模式的共享規劃器，處理共享組內的多個聊天；私聊啟用 Focus 後也使用此模板，透過 session_id 指定目標。"
