@@ -19,6 +19,13 @@ class ReplySegment(TypedDict):
     is_correction: bool
 
 
+def _warm_up_jieba() -> None:
+    """構建 jieba 前綴字典，把惰性加載成本挪到啟動期。"""
+    import jieba
+
+    jieba.initialize()
+
+
 def apply_typos(segments: List[ReplySegment], config: TypoSettings) -> List[ReplySegment]:
     rule_generator = None
     dictionary_edit = None
@@ -62,7 +69,9 @@ class ChineseTypoPlugin(MaiBotPlugin):
     config_model: ClassVar[type[ChineseTypoPluginConfig]] = ChineseTypoPluginConfig
 
     async def on_load(self) -> None:
-        pass
+        # 錯字注入依賴 jieba 分詞，首次調用會惰性構建前綴字典（實測 1.3s＋IO，
+        # 疊加 IPC 後會頂爆 hook 的 3000ms 熔斷）；載入時先在线程裡預熱。
+        await asyncio.to_thread(_warm_up_jieba)
 
     async def on_unload(self) -> None:
         pass
