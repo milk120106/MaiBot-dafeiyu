@@ -33,7 +33,17 @@ _state_loaded = False
 _save_task: Optional[asyncio.Task[None]] = None
 
 MINUTE_COOLDOWN_SECONDS = 300.0
+UNAVAILABLE_COOLDOWN_SECONDS = 120.0
 MAX_COOLDOWN_SECONDS = 24 * 3600.0
+
+
+def retry_exhausted_cooldown_seconds(status_code: int) -> Optional[float]:
+    """回傳重試耗盡後應採用的短冷卻秒數；其他狀態不主動冷卻。"""
+    if status_code == 503:
+        return UNAVAILABLE_COOLDOWN_SECONDS
+    if status_code == 429:
+        return MINUTE_COOLDOWN_SECONDS
+    return None
 
 # Google 429 正文中的精確資訊：RetryInfo.retryDelay（秒）與 QuotaFailure 實際計額模型。
 _RETRY_DELAY_PATTERN = re.compile(r"'retryDelay':\s*'(\d+)s'")

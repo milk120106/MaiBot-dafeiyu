@@ -486,6 +486,16 @@ class ModelTaskConfig(ConfigBase):
     )
     """规划模型，决定麦麦的行动，需要有一定Agent能力的模型"""
 
+    background_agent: TaskConfig = Field(
+        default_factory=TaskConfig,
+        json_schema_extra={
+            "x-widget": "custom",
+            "advanced": True,
+            "label": {"zh_CN": "后台 Agent (background_agent)"},
+        },
+    )
+    """后台子代理模型配置；使用独立池承接慢但能力强的模型，避免拖慢前台规划与回复。"""
+
     memory: TaskConfig = Field(
         default_factory=TaskConfig,
         json_schema_extra={

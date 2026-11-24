@@ -36,14 +36,15 @@ from src.llm_models.exceptions import (
 )
 from src.llm_models.quota_cooldown import (
     MAX_COOLDOWN_SECONDS,
-    MINUTE_COOLDOWN_SECONDS,
     make_key,
     mark_cooldown,
     next_daily_reset_ts,
     parse_quota_feedback,
     partition as partition_cooldown,
     record_usage as record_quota_usage,
+    retry_exhausted_cooldown_seconds,
 )
+from src.llm_models import monthly_budget
 from src.llm_models.model_client.base_client import (
     APIResponse,
     AudioTranscriptionRequest,
@@ -1061,6 +1062,17 @@ class LLMOrchestrator:
         logger.debug(f"选择请求模型: {model_info.name} (策略: {strategy})")
         return model_info, api_provider, client
 
+    @staticmethod
+    def _model_monthly_limits(model_info: ModelInfo) -> Dict[str, float]:
+        """讀取模型 extra_params 的月度請求/Token/金額上限。"""
+        extra = model_info.extra_params
+        return {
+            "requests": int(extra.get("monthly_requests") or 0),
+            "tokens": int(extra.get("monthly_tokens") or 0),
+            "budget_usd": float(extra.get("monthly_budget_usd") or 0.0),
+            "budget_cny": float(extra.get("monthly_budget_cny") or 0.0),
+        }
+
     def _record_success_generation_attempt(
         self,
         *,
@@ -1148,6 +1160,7 @@ class LLMOrchestrator:
             )
             attach_request_snapshot(error, snapshot_path)
 
+        compression_413_attempted = False
         while retry_remain > 0:
             if active_request.trace_context is not None:
                 active_request.trace_context.attempt += 1
@@ -1289,9 +1302,10 @@ class LLMOrchestrator:
                 if e.status_code == 429 or e.status_code >= 500:
                     retry_remain -= 1
                     if retry_remain <= 0:
-                        if e.status_code == 429:
-                            # 非日額度的 429（速率限制或無法判讀）短冷卻，避免後續請求立刻繼續選用。
-                            mark_cooldown(self._cooldown_key(model_info.name), time.time() + MINUTE_COOLDOWN_SECONDS)
+                        cooldown_seconds = retry_exhausted_cooldown_seconds(e.status_code)
+                        if cooldown_seconds is not None:
+                            # 429 與 503 重試耗盡都短冷卻，避免下一個請求立刻重複撞到同一個模型。
+                            mark_cooldown(self._cooldown_key(model_info.name), time.time() + cooldown_seconds)
                         logger.error(
                             f"任务 '{task_display}' 的模型 '{model_info.name}' 在遇到 {e.status_code} 错误并用尽重试次数后仍然失败。{original_error_info}"
                         )
@@ -1327,11 +1341,11 @@ class LLMOrchestrator:
                     await asyncio.to_thread(update_failed_request_attempt, e, status="retrying")
                     continue
 
-                if e.status_code == 413 and can_retry_with_compression:
+                if e.status_code == 413 and can_retry_with_compression and not compression_413_attempted:
+                    compression_413_attempted = True
                     logger.warning(
                         f"任务 '{task_display}' 的模型 '{model_info.name}' 返回413请求体过大，尝试压缩后重试..."
                     )
-                    # 压缩消息本身不消耗重试次数
                     compressed_messages = compress_messages(active_request.context_items)
                     active_request = active_request.copy_with(context_items=compressed_messages)
                     await asyncio.to_thread(update_failed_request_attempt, e, status="retrying")
@@ -1486,6 +1500,20 @@ class LLMOrchestrator:
                 # 请求级副本也覆盖重试及候选模型切换，避免改变其他任务的流式设置。
                 model_info = model_info.model_copy(update={"force_stream_mode": True})
             last_model_name = model_info.name
+            monthly_limits = self._model_monthly_limits(model_info)
+            if any(monthly_limits.values()):
+                monthly_key = self._cooldown_key(model_info.name)
+                monthly_state = monthly_budget.status(monthly_key, monthly_limits)
+                if monthly_state["exceeded"]:
+                    until_ts = monthly_state["reset_at"]
+                    mark_cooldown(monthly_key, until_ts)
+                    failed_models_this_request.add(model_info.name)
+                    logger.warning(
+                        f"模型 '{model_info.name}'（{api_provider.name}）月度預算已超支"
+                        f"（{', '.join(monthly_state['reasons'])}），冷卻至 "
+                        f"{time.strftime('%m-%d %H:%M', time.localtime(until_ts))} 並切換備援模型。"
+                    )
+                    continue
             trace_context.model_attempt = 0
             context_items: List[ContextItem] = []
             try:
@@ -1546,6 +1574,26 @@ class LLMOrchestrator:
                         f"模型 '{model_info.name}'（{api_provider.name}）今日請求已達設定上限 {used}/{limit}，"
                         f"已自動冷卻至 {time.strftime('%m-%d %H:%M', time.localtime(cooled_ts))}。"
                     )
+                if any(monthly_limits.values()):
+                    usage = response.usage
+                    monthly_state = monthly_budget.record_usage(
+                        monthly_key,
+                        monthly_limits,
+                        input_tokens=usage.prompt_tokens if usage else 0,
+                        output_tokens=usage.completion_tokens if usage else 0,
+                        cached_input_tokens=usage.prompt_cache_hit_tokens if usage else 0,
+                        price_in=model_info.price_in,
+                        price_out=model_info.price_out,
+                        cache_price_in=model_info.cache_price_in,
+                    )
+                    if monthly_state["exceeded"]:
+                        until_ts = monthly_state["reset_at"]
+                        mark_cooldown(monthly_key, until_ts)
+                        logger.warning(
+                            f"模型 '{model_info.name}'（{api_provider.name}）本次請求後達到月度上限"
+                            f"（{', '.join(monthly_state['reasons'])}），已冷卻至 "
+                            f"{time.strftime('%m-%d %H:%M', time.localtime(until_ts))}。"
+                        )
                 if self.request_type.startswith("maisaka."):
                     logger.debug(f"LLMOrchestrator[{self.request_type}] 模型 model={model_info.name} 已返回 API 响应")
                 response_tokens = response.usage.total_tokens if response.usage else 0

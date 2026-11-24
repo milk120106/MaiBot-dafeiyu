@@ -48,6 +48,13 @@ DEFAULT_TASK_CONFIG_TEMPLATES: dict[str, dict[str, Any]] = {
         "selection_strategy": "random",
         "hard_timeout": 180.0,
     },
+    "background_agent": {
+        "model_list": [],
+        "max_tokens": 16384,
+        "temperature": 0.5,
+        "selection_strategy": "balance",
+        "hard_timeout": 600.0,
+    },
     "learner": {"model_list": [], "max_tokens": 8192, "hard_timeout": 120.0},
     "fast_model": {"model_list": [], "max_tokens": 8192, "temperature": 0.3, "hard_timeout": 120.0},
     "vlm": {"model_list": [], "max_tokens": 8192, "hard_timeout": 240.0},

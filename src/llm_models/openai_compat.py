@@ -155,6 +155,12 @@ def split_openai_request_overrides(
         OpenAICompatibleRequestOverrides: 拆分后的请求覆盖配置。
     """
     raw_params = dict(extra_params or {})
+    raw_params.pop("daily_quota", None)
+    raw_params.pop("rpd", None)
+    raw_params.pop("monthly_requests", None)
+    raw_params.pop("monthly_tokens", None)
+    raw_params.pop("monthly_budget_usd", None)
+    raw_params.pop("monthly_budget_cny", None)
     extra_headers = _extract_mapping(raw_params.pop("headers", None))
     extra_query = _extract_mapping(raw_params.pop("query", None))
     extra_body = _extract_mapping(raw_params.pop("body", None))

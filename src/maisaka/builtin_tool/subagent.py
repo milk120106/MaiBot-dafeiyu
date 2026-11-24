@@ -222,6 +222,7 @@ async def _run_sub_agent_rounds(
             extra_messages=sub_agent_history,
             tool_definitions=[] if is_final_round else tool_definitions,
             include_parent_context=False,
+            model_task_name="background_agent",
         )
         is_concluding_round = not response.tool_calls or is_final_round
         await emit_subagent_round(
