@@ -361,12 +361,20 @@ class FactDeduplicator:
                 if fact_id in fixed:
                     decisions.append(fixed[fact_id])
                 elif action == "reuse":
-                    if row.get("target_id") not in allowed:
+                    target_id = row.get("target_id")
+                    if target_id not in allowed:
+                        if isinstance(target_id, str) and target_id.startswith("input:"):
+                            logger.warning(
+                                f"去重目标指向输入自身，降级为 keep: scope={scope_type}:{scope_id} "
+                                f"fact_id={fact_id} target_id={target_id!r}"
+                            )
+                            decisions.append({"fact_id": fact_id, "action": "keep", "candidate_ids": []})
+                            continue
                         raise ValueError(
                             f"去重目标不属于当前候选: scope={scope_type}:{scope_id} fact_id={fact_id} "
-                            f"target_id={row.get('target_id')!r} allowed_ids={list(allowed)!r}"
+                            f"target_id={target_id!r} allowed_ids={list(allowed)!r}"
                         )
-                    decisions.append({"fact_id": fact_id, "action": action, "target": allowed[row["target_id"]]})
+                    decisions.append({"fact_id": fact_id, "action": action, "target": allowed[target_id]})
                 else:
                     possible = row.get("candidate_ids", [])
                     if (

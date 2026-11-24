@@ -333,6 +333,10 @@ class SessionMessage(MaiMessage):
         if normalized_content:  # 先检查是否处理过
             component.content = normalized_content
             return normalized_content
+        if not component.binary_data:
+            logger.warning("图片组件缺少二进制数据，跳过图片描述生成")
+            component.content = ""
+            return ""
         from src.chat.image_system.image_manager import image_manager
 
         # 先保存图片再获取描述；保存失败时上抛并保留原始字节，供调用方处理失败。
