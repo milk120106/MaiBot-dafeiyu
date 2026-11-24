@@ -42,6 +42,7 @@ from src.llm_models.quota_cooldown import (
     next_daily_reset_ts,
     parse_quota_feedback,
     partition as partition_cooldown,
+    record_usage as record_quota_usage,
 )
 from src.llm_models.model_client.base_client import (
     APIResponse,
@@ -931,9 +932,25 @@ class LLMOrchestrator:
     _last_cooldown_log_summary: str = ""
 
     def _cooldown_key(self, model_name: str) -> str:
-        """把配置中的模型名映射為「供應商+模型標識」冷卻鍵。"""
+        """把配置中的模型名映射為「供應商+APIKey指紋+模型標識」冷卻鍵。"""
         model_info = TempMethodsLLMUtils.get_model_info_by_name(model_name)
-        return make_key(model_info.api_provider, model_info.model_identifier)
+        api_key = ""
+        try:
+            api_key = model_config.get_provider(model_info.api_provider).api_key
+        except Exception:
+            pass
+        return make_key(model_info.api_provider, model_info.model_identifier, api_key=api_key)
+
+    @staticmethod
+    def _model_daily_quota(model_info: ModelInfo) -> int:
+        """讀取模型 extra_params 中的每日請求上限設定（daily_quota 或 rpd）。"""
+        raw = model_info.extra_params.get("daily_quota")
+        if raw is None:
+            raw = model_info.extra_params.get("rpd")
+        try:
+            return max(0, int(raw or 0))
+        except (TypeError, ValueError):
+            return 0
 
     def _all_models_cooled(self) -> bool:
         available, _ = partition_cooldown([self._cooldown_key(name) for name in self.model_usage])
@@ -979,12 +996,12 @@ class LLMOrchestrator:
             if cooled:
                 selectable = {name for name, key in name_keys if key in set(available_keys)}
                 if selectable:
-                    skipped_names = [name for name, key in name_keys if key in cooled]
-                    summary = (
-                        f"模型額度冷卻中，本次跳過 {len(cooled)} 個模型"
-                        f"（{', '.join(skipped_names)}；"
-                        f"最快 {time.strftime('%m-%d %H:%M', time.localtime(min(cooled.values())))} 解禁）"
+                    skipped = [(name, cooled[key]) for name, key in name_keys if key in cooled]
+                    details = "、".join(
+                        f"{name} 至 {time.strftime('%m-%d %H:%M', time.localtime(until))}"
+                        for name, until in skipped
                     )
+                    summary = f"模型額度冷卻中，本次跳過 {len(cooled)} 個模型（{details}）"
                 else:
                     soonest_name, soonest_until = min(
                         ((name, cooled[key]) for name, key in name_keys), key=lambda item: item[1]
@@ -1255,8 +1272,13 @@ class LLMOrchestrator:
                         else:
                             until_ts = next_daily_reset_ts()
                         counted_models = [model_info.model_identifier, *[m for m in quota_models if m != model_info.model_identifier]]
+                        api_key = ""
+                        try:
+                            api_key = model_config.get_provider(model_info.api_provider).api_key
+                        except Exception:
+                            pass
                         for counted in counted_models:
-                            mark_cooldown(make_key(model_info.api_provider, counted), until_ts)
+                            mark_cooldown(make_key(model_info.api_provider, counted, api_key=api_key), until_ts)
                         logger.error(
                             f"任务 '{task_display}' 的模型 '{model_info.name}' 日额度已耗尽"
                             f"（计额模型: {'、'.join(counted_models)}），"
@@ -1515,6 +1537,15 @@ class LLMOrchestrator:
                     request,
                     model_info.name,
                 )
+                used, limit, cooled_ts = record_quota_usage(
+                    self._cooldown_key(model_info.name),
+                    configured_limit=self._model_daily_quota(model_info),
+                )
+                if cooled_ts is not None:
+                    logger.warning(
+                        f"模型 '{model_info.name}'（{api_provider.name}）今日請求已達設定上限 {used}/{limit}，"
+                        f"已自動冷卻至 {time.strftime('%m-%d %H:%M', time.localtime(cooled_ts))}。"
+                    )
                 if self.request_type.startswith("maisaka."):
                     logger.debug(f"LLMOrchestrator[{self.request_type}] 模型 model={model_info.name} 已返回 API 响应")
                 response_tokens = response.usage.total_tokens if response.usage else 0
