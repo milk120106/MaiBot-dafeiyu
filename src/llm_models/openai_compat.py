@@ -161,6 +161,8 @@ def split_openai_request_overrides(
     raw_params.pop("monthly_tokens", None)
     raw_params.pop("monthly_budget_usd", None)
     raw_params.pop("monthly_budget_cny", None)
+    raw_params.pop("lifetime_budget_usd", None)
+    raw_params.pop("lifetime_budget_cny", None)
     extra_headers = _extract_mapping(raw_params.pop("headers", None))
     extra_query = _extract_mapping(raw_params.pop("query", None))
     extra_body = _extract_mapping(raw_params.pop("body", None))

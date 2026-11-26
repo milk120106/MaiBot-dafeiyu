@@ -1071,6 +1071,8 @@ class LLMOrchestrator:
             "tokens": int(extra.get("monthly_tokens") or 0),
             "budget_usd": float(extra.get("monthly_budget_usd") or 0.0),
             "budget_cny": float(extra.get("monthly_budget_cny") or 0.0),
+            "lifetime_budget_usd": float(extra.get("lifetime_budget_usd") or 0.0),
+            "lifetime_budget_cny": float(extra.get("lifetime_budget_cny") or 0.0),
         }
 
     def _record_success_generation_attempt(
