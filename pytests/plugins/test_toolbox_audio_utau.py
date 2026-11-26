@@ -50,6 +50,7 @@ def test_audio_analyze_and_mix():
     assert result["duration_sec"] == 3.0
     assert result["bpm"] > 0
     assert result["key"] and result["spectral_energy"]
+    assert isinstance(result["chords"], list) and isinstance(result["chord_progression"], list)
 
     mixed = asyncio.run(audio.mix_audio([
         {"name": "a.wav", "data": _wav(1.0, 440), "volume": 0.5},
