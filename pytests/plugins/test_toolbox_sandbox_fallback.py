@@ -26,6 +26,15 @@ def sandbox_engine():
     return module
 
 
+@pytest.fixture(autouse=True)
+def disable_network_fallbacks(sandbox_engine, monkeypatch):
+    async def unavailable(*args, **kwargs):
+        return {"error": "disabled in unit test"}
+
+    monkeypatch.setattr(sandbox_engine, "_execute_judge0", unavailable)
+    monkeypatch.setattr(sandbox_engine, "_execute_onlinecompiler", unavailable)
+
+
 def test_wandbox_success_stops_fallback(sandbox_engine, monkeypatch):
     async def fake_execute(*args, **kwargs):
         return {"provider": "wandbox", "stdout": "ok", "exit_code": 0}
@@ -75,4 +84,4 @@ def test_non_python_does_not_call_python_only_fallbacks(sandbox_engine, monkeypa
     monkeypatch.setattr(sandbox_engine, "_execute_e2b", forbidden)
     result = asyncio.run(sandbox_engine.execute_with_fallback("javascript", "console.log(1)", e2b_api_keys=["e2b"]))
     assert "error" in result
-    assert len(result["attempts"]) == 1
+    assert len(result["attempts"]) == 2

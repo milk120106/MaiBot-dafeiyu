@@ -288,6 +288,7 @@
       "pluginMarket": "プラグインマーケット",
       "configTemplate": "設定テンプレート",
       "pluginConfig": "プラグイン拡張",
+      "browserMonitor": "ブラウザ監視",
       "adapterManagement": "アダプター設定",
       "mcpSettings": "MCP 設定",
       "dataTransfer": "データ管理",

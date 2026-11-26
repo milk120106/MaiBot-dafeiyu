@@ -7,6 +7,7 @@ import {
   Home,
   MessageCircle,
   MessageSquare,
+  Monitor,
   Puzzle,
   Settings,
   Store,
@@ -29,6 +30,7 @@ const PluginConfigIcon = createStreamlineIcon('application-add-remix', Puzzle)
 const AdapterManagementIcon = createStreamlineIcon('router-wifi-network-solid', Wifi)
 const PluginMarketIcon = createStreamlineIcon('store-2-solid', Store)
 const DataTransferIcon: MenuIcon = (props) => createElement(HardDrive, props)
+const BrowserMonitorIcon: MenuIcon = (props) => createElement(Monitor, props)
 const DesktopPetIcon: MenuIcon = ({ size = 20, ...props }) =>
   createElement(
     'svg',
@@ -122,6 +124,7 @@ export const menuSections: MenuSection[] = [
     title: 'sidebar.groups.extensionsMonitor',
     items: [
       { icon: PluginConfigIcon, label: 'sidebar.menu.pluginConfig', path: '/plugin-config' },
+      { icon: BrowserMonitorIcon, label: 'sidebar.menu.browserMonitor', path: '/browser-monitor' },
       {
         icon: PluginMarketIcon,
         label: 'sidebar.menu.pluginMarket',

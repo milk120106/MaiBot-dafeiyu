@@ -130,6 +130,16 @@ const botConfigRoute = createRoute({
   component: lazyRouteComponent(() => import('./routes/config/bot'), 'BotConfigPage'),
 })
 
+const browserMonitorRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/browser-monitor',
+  beforeLoad: async () => {
+    const { host, selected_bot_running } = getHostRuntime()
+    if (host && !selected_bot_running) throw redirect({ to: '/bots', replace: true })
+  },
+  component: lazyRouteComponent(() => import('./routes/browser-monitor'), 'BrowserMonitorPage'),
+})
+
 const desktopPetRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/desktop-pet',
@@ -484,6 +494,7 @@ const routeTree = rootRoute.addChildren([
     helpHistoryRoute,
     statisticsRoute,
     botConfigRoute,
+    browserMonitorRoute,
     desktopPetRoute,
     modelConfigRoute,
     promptManagementRoute,

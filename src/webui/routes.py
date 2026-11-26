@@ -11,6 +11,7 @@ from src.webui.routers.desktop_pet_remote import router as desktop_pet_remote_ro
 from src.webui.routers.files import router as files_router
 from src.webui.routers.avatar import router as avatar_router
 from src.webui.routers.bot_accounts import router as bot_accounts_router
+from src.webui.routers.browser_monitor import router as browser_monitor_router
 from src.webui.routers.config import router as config_router
 from src.webui.routers.emoji import router as emoji_router
 from src.webui.routers.expression import router as expression_router
@@ -58,6 +59,7 @@ router.include_router(text_learning_router)
 router.include_router(bot_accounts_router)
 router.include_router(emoji_router)
 router.include_router(avatar_router)
+router.include_router(browser_monitor_router)
 router.include_router(user_emoji_router)
 # 注册插件管理路由
 router.include_router(plugin_router)
